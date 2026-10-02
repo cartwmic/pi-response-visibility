@@ -29,7 +29,7 @@ export default function (pi: ExtensionAPI) {
     ui?.setWidget('latency', state.config.preset === 'off' ? undefined : (tui: any, theme: any) => {
       requestRender = () => tui.requestRender();
       return { render: (width: number) => lines({ ...state, current: state.observer.snapshot(), health: writer?.stats() })
-        .map((line: string) => truncateToWidth(theme.fg('muted', line), width)), invalidate() {}, dispose() { requestRender = undefined; } };
+        .map((line: string) => truncateToWidth(theme.fg('dim', line), width)), invalidate() {}, dispose() { requestRender = undefined; } };
     });
   }
   function recorder() {
