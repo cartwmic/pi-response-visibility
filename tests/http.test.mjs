@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { bridge, foreground, observeHTTP } from '../src/core-bridge.mjs';
+test('HTTP preserves receiver, inputs, result, rejection and isolates listeners', async () => {
+  const events=[]; const off=bridge.subscribe(e=>events.push(e));
+  const response=new Response('stream',{status:200,headers:{'x-request-id':'dummy-key','x-ratelimit-remaining-requests':'7','authorization':'dummy-key'}});
+  const promise=Promise.resolve(response), receiver={}, args=['http://fixture',{body:'🙂',signal:new AbortController().signal}];
+  const options=foreground({apiKey:'dummy-key',onPayload:x=>x,fetch:function(...actual){assert.equal(this,receiver);assert.deepEqual(actual,args);assert.equal(actual[1],args[1]);return promise;}});
+  const adapter=observeHTTP(options,{});
+  assert.equal(adapter.fetch.apply(receiver,args),promise);await promise;await new Promise(r=>setImmediate(r));
+  adapter.event({choices:[{delta:{content:'do not capture'}}]});adapter.dispose();off();
+  const measured=events.filter(e=>e.kind==='transport');
+  assert.ok(measured.every(e=>e.origin==='foreground'));
+  assert.equal(measured[0].data.requestBytes,4);
+  assert.equal(measured[1].data.headers['x-request-id'],undefined); // custom fetch coverage unknown
+  assert.equal(measured[1].data.status,200);
+  assert.equal(measured[1].data.responseBytes,null);
+  assert.deepEqual(measured.map(e=>e.data.stage), ['dispatch','headers','first-event','content']);
+  assert.ok(measured.every(e=>e.data.provenance==='observed' && e.data.providerPath==='openai-completions'));
+  assert.ok(measured.every(e=>e.unavailable.includes('response-wire-bytes')));
+  assert.equal(new Set(measured.map(e=>e.requestId)).size,1);
+  assert.ok(!JSON.stringify(measured).includes('dummy-key'));assert.ok(!JSON.stringify(measured).includes('do not capture'));
+  const backgroundEvents=[];const stopBackground=bridge.subscribe(e=>backgroundEvents.push(e));
+  const background=observeHTTP({fetch:()=>response});background.fetch(...args);
+  await new Promise(r=>setImmediate(r));background.event({choices:[{delta:{role:'assistant'}}]});background.dispose();stopBackground();
+  assert.ok(backgroundEvents.every(e=>e.origin==='background' && e.requestId!==measured[0].requestId));
+  assert.deepEqual(backgroundEvents.map(e=>e.data.stage),['dispatch','headers','first-event']);
+  const failure=new Error('original'), rejected=Promise.reject(failure);
+  const bad=observeHTTP({fetch:()=>rejected});assert.equal(bad.fetch(...args),rejected);await assert.rejects(rejected,e=>e===failure);bad.dispose();
+  const sync=observeHTTP({fetch(){throw failure;}});
+  assert.throws(()=>sync.fetch(...args),e=>e===failure);sync.dispose();
+  const immediate=observeHTTP({fetch:()=>response});
+  assert.equal(immediate.fetch(...args),response);immediate.dispose();
+});

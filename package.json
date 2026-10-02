@@ -1,0 +1,14 @@
+{
+  "name": "pi-response-visibility",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=22.19" },
+  "pi": { "extensions": ["./index.ts"] },
+  "bin": { "pi-response-visibility-core": "./bin/core.mjs" },
+  "scripts": {
+    "check": "node --check src/observer.mjs && node --check src/config.mjs && node --check src/trace.mjs && node --check src/ui.mjs && node --check src/core-patch.mjs && node --check src/core-bridge.mjs && node --check bin/core.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "node scripts/verify.mjs"
+  }
+}
