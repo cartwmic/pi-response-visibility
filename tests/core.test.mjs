@@ -29,15 +29,18 @@ test('explicit CLI private-copy cycle, idempotence and sibling preservation', as
   assert.equal(run(root, 'check').state, 'stock');
   assert.equal(await readFile(path, 'utf8'), original + '\n// sibling patch\n');
 });
-test('unsupported versions and ambiguous anchors fail before any writes', async t => {
+test('wrong packages and ambiguous anchors fail before any writes; versions are anchor-gated', async t => {
   const root = await fixture(t);
   const path = join(root, 'dist/core/model-runtime.js');
   const original = await readFile(path, 'utf8');
   const pkgPath = join(root, 'package.json');
   const pkg = await readFile(pkgPath, 'utf8');
-  await writeFile(pkgPath, pkg.replace('0.99.2', '0.99.3'));
+  const manifest = JSON.parse(pkg);
+  await writeFile(pkgPath, JSON.stringify({ ...manifest, name: 'not-pi' }));
   assert.throws(() => run(root, 'apply'));
   assert.equal(await readFile(path, 'utf8'), original);
+  await writeFile(pkgPath, JSON.stringify({ ...manifest, version: '999.0.0' }));
+  assert.equal(run(root, 'check').state, 'stock');
   await writeFile(pkgPath, pkg);
   await writeFile(path, original + '\n    async prepareRequest(model, options) {\n');
   const ambiguous = await readFile(path, 'utf8');

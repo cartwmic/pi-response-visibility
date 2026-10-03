@@ -1,6 +1,6 @@
 # Pi response visibility
 
-Passive response-wait diagnostics for Pi **0.99.2**, Node **>=22.19**, macOS and Linux desktops. This is a Git-distributed package, not a published npm artifact. It does not change model selection, requests, retries, fallback, timeouts or abort behavior. Silence is not evidence of a server hang or internal reasoning.
+Passive response-wait diagnostics for Pi (proven on **0.99.2**; any version whose patch anchors match), Node **>=22.19**, macOS and Linux desktops. This is a Git-distributed package, not a published npm artifact. It does not change model selection, requests, retries, fallback, timeouts or abort behavior. Silence is not evidence of a server hang or internal reasoning.
 
 ## Install without chezmoi
 
@@ -60,7 +60,7 @@ Stock Pi refuses `/latency capture events|bodies`. With the supported helper, ex
 
 ## Optional explicit core helper v1
 
-Only the exact `@earendil-works/pi-coding-agent` **0.99.2** runtime is supported. Use an absolute package root containing its `package.json` and `dist/`, not the executable path. Test on a private copy before choosing any live installation change:
+Any `@earendil-works/pi-coding-agent` version is accepted when every patch anchor matches exactly once; a changed or missing anchor fails closed before any write. Full proof below was retained on 0.99.2. Use an absolute package root containing its `package.json` and `dist/`, not the executable path. Test on a private copy before choosing any live installation change:
 
 ```sh
 node /absolute/package/bin/core.mjs check --pi-root /absolute/private-pi
@@ -69,7 +69,7 @@ node /absolute/package/bin/core.mjs check --pi-root /absolute/private-pi
 node /absolute/package/bin/core.mjs rollback --pi-root /absolute/private-pi
 ```
 
-Without `--pi-root`, Node package resolution must find the supported Pi package. Prefer an explicit root. Check validates version, unique anchors and bridge state; incompatible/partial/modified targets fail closed. Apply/check are idempotent. Rollback reverses only exact owned substitutions and preserves sibling modifications. Writes are not an atomic multi-file transaction; interruption can require manual source restoration, not blind reapplication. See [helper contract and remaining gaps](CORE-HANDOFF.md), [canonical patch](src/core-patch.mjs), and [bridge](src/core-bridge.mjs).
+Without `--pi-root`, Node package resolution must find the supported Pi package. Prefer an explicit root. Check validates package name, unique anchors and bridge state; incompatible/partial/modified targets fail closed. Apply/check are idempotent. Rollback reverses only exact owned substitutions and preserves sibling modifications. Writes are not an atomic multi-file transaction; interruption can require manual source restoration, not blind reapplication. See [helper contract and remaining gaps](CORE-HANDOFF.md), [canonical patch](src/core-patch.mjs), and [bridge](src/core-bridge.mjs).
 
 Owner integration prerequisites are a maintained package source/extracted snapshot, the matching Pi installation root, and the owner's separate chezmoi source checkout and wrapper. That wrapper must delegate to this same `bin/core.mjs`, not maintain a second patch payload. Follow that checkout's `AGENTS.md`, review its source diff and explicitly authorize deployment separately. Direct users need none of the owner's dotfiles. No live deployment, commit, push or publication is claimed here.
 

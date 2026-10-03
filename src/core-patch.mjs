@@ -87,7 +87,8 @@ export async function corePatch(action, suppliedRoot) {
   if (!['check', 'apply', 'rollback'].includes(action)) throw new Error('Expected check, apply or rollback');
   const root = await resolvePiRoot(suppliedRoot);
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
-  if (pkg.name !== '@earendil-works/pi-coding-agent' || pkg.version !== '0.99.2') throw new Error('Unsupported Pi install (requires 0.99.2)');
+  // Any Pi version is accepted; the unique-anchor checks below are the compatibility gate.
+  if (pkg.name !== '@earendil-works/pi-coding-agent') throw new Error('Unsupported Pi install (expected @earendil-works/pi-coding-agent)');
   const sources = new Map();
   for (const path of [runtime, runner, sdk, http, codex]) {
     if (!(await lstat(join(root, path))).isFile()) throw new Error('Patch targets must be regular files');
