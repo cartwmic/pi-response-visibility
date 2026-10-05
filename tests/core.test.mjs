@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, cp, readFile, writeFile, rm, realpath } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
+import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -10,9 +11,22 @@ const cli = new URL('../bin/core.mjs', import.meta.url).pathname;
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'visibility-core-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const install = dirname(dirname(dirname(await realpath(execFileSync('which', ['pi'], { encoding: 'utf8' }).trim()))));
-  for (const path of ['package.json', 'dist/core/model-runtime.js', 'dist/core/extensions/runner.js', 'dist/core/sdk.js', 'node_modules/@earendil-works/pi-ai/dist/api/openai-completions.js', 'node_modules/@earendil-works/pi-ai/dist/api/openai-codex-responses.js']) await cp(join(install, path), join(root, path), { recursive: true });
+  const install = await installedPi();
+  for (const path of ['package.json', 'dist/core/model-runtime.js', 'dist/core/extensions/runner.js', 'dist/core/sdk.js', 'dist/bundle']) await cp(join(install, path), join(root, path), { recursive: true });
+  // pi-ai is nested under npm-global installs and a hoisted sibling under Pi's managed install.
+  const nested = join(install, 'node_modules/@earendil-works/pi-ai');
+  const ai = existsSync(nested) ? nested : join(install, '../pi-ai');
+  for (const file of ['openai-completions.js', 'openai-codex-responses.js']) await cp(join(ai, 'dist/api', file), join(root, 'node_modules/@earendil-works/pi-ai/dist/api', file));
+  await cp(join(ai, 'package.json'), join(root, 'node_modules/@earendil-works/pi-ai/package.json'));
   return root;
+}
+// PI_TEST_ROOT, Pi's managed install (~/.pi/agent/install), then the npm package behind `which pi`.
+async function installedPi() {
+  if (process.env.PI_TEST_ROOT) return process.env.PI_TEST_ROOT;
+  const agent = process.env.PI_CODING_AGENT_DIR || join(homedir(), '.pi', 'agent');
+  const current = join(agent, 'install', 'current-version');
+  if (existsSync(current)) return join(agent, 'install', 'releases', readFileSync(current, 'utf8').trim(), 'node_modules/@earendil-works/pi-coding-agent');
+  return dirname(dirname(dirname(await realpath(execFileSync('which', ['pi'], { encoding: 'utf8' }).trim()))));
 }
 const run = (root, action) => JSON.parse(execFileSync(process.execPath, [cli, action, '--pi-root', root], { encoding: 'utf8' }));
 test('explicit CLI private-copy cycle, idempotence and sibling preservation', async t => {
