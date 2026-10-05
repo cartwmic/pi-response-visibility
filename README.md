@@ -1,6 +1,6 @@
 # Pi response visibility
 
-Passive response-wait diagnostics for Pi (proven on **0.99.2**; any version whose patch anchors match), Node **>=22.19**, macOS and Linux desktops. This is a Git-distributed package, not a published npm artifact. It does not change model selection, requests, retries, fallback, timeouts or abort behavior. Silence is not evidence of a server hang or internal reasoning.
+Passive response-wait diagnostics for Pi (proven on **0.99.2** and **1.0.3**; any version whose patch anchors match), Node **>=22.19**, macOS and Linux desktops. This is a Git-distributed package, not a published npm artifact. It does not change model selection, requests, retries, fallback, timeouts or abort behavior. Silence is not evidence of a server hang or internal reasoning.
 
 ## Install without chezmoi
 
@@ -60,7 +60,7 @@ Stock Pi refuses `/latency capture events|bodies`. With the supported helper, ex
 
 ## Optional explicit core helper v1
 
-Any `@earendil-works/pi-coding-agent` version is accepted when every patch anchor matches exactly once; a changed or missing anchor fails closed before any write. Full proof below was retained on 0.99.2. Use an absolute package root containing its `package.json` and `dist/`, not the executable path. Test on a private copy before choosing any live installation change:
+Any `@earendil-works/pi-coding-agent` version is accepted when every patch anchor matches exactly once; a changed or missing anchor fails closed before any write. Full proof below was retained on 0.99.2. Builds that ship `dist/bundle/chunks` (1.0.x) also get minified bundle anchors, because the `pi` CLI runs the bundle, not `dist/core`; `pi-ai` may be nested or a hoisted sibling (Pi's managed install). On 1.0.3, [bundle-cli-proof](tests/bundle-cli-proof.mjs) drives the bundled CLI against scripted HTTP and Codex backends: patched copies emit hook/auth/prepare/sdk and transport events, stock copies emit none. Use an absolute package root containing its `package.json` and `dist/`, not the executable path. Test on a private copy before choosing any live installation change:
 
 ```sh
 node /absolute/package/bin/core.mjs check --pi-root /absolute/private-pi
