@@ -54,7 +54,7 @@ const bundleSpecs = [
   [bundleMain, 'async prepareRequest(model,options){let provider=', `async prepareRequest(model,options){let visibility=visibilityBegin(options),visibilityEnd=visibility.span("prepare");${m}try{let provider=`],
   [bundleMain, 'let resolution=await this.getAuth(model,{apiKey:options?.apiKey,env:options?.env,signal:options?.signal});', `let visibilityAuthEnd=visibility.span("auth"),resolution;${m}try{resolution=await this.getAuth(model,{apiKey:options?.apiKey,env:options?.env,signal:options?.signal})}finally{visibilityAuthEnd()}visibility.credentials(resolution),visibility.credentials(options?.apiKey),visibility.credentials(options?.headers),visibility.credentials(options?.env);`],
   [bundleMain, ',requestModel=resolution.auth.baseUrl?{...model,baseUrl:resolution.auth.baseUrl}:model;return{provider,model:requestModel,options:{...providerOptions,apiKey:providerOptions.apiKey??resolution.auth.apiKey,headers,env}}}stream(model,context,options){', `,requestModel=(visibility.credentials(headers),visibility.credentials(env),resolution.auth.baseUrl?{...model,baseUrl:resolution.auth.baseUrl}:model),visibilityPrepared={provider,model:requestModel,options:{...providerOptions,apiKey:providerOptions.apiKey??resolution.auth.apiKey,headers,env}};return visibility.handoff(visibilityPrepared.options,requestModel),visibilityPrepared}finally{visibilityEnd(),visibility.dispose()}${m}}stream(model,context,options){`],
-  [bundleMain, 'async emitBeforeAgentStart(prompt,images,systemPromptOptions){', `async emitBeforeAgentStart(prompt,images,systemPromptOptions){let visibility=visibilityBegin(),visibilityEnd=visibility.span("hook");${m}try{`],
+  [bundleMain, 'async emitBeforeAgentStart(trigger,systemPromptOptions){', `async emitBeforeAgentStart(trigger,systemPromptOptions){let visibility=visibilityBegin(),visibilityEnd=visibility.span("hook");${m}try{`],
   [bundleMain, 'return{messages,systemPromptOptions:currentOptions}}async emitResourcesDiscover(', `return{messages,systemPromptOptions:currentOptions}}finally{visibilityEnd(),visibility.dispose()}${m}}async emitResourcesDiscover(`],
 ];
 const specs = [
@@ -114,7 +114,7 @@ const specs = [
         visibility.handoff(visibilityPrepared.options, requestModel);
         return visibilityPrepared; ${marker}`],
   [runtime, '    }\n    stream(model, context, options) {', `        } finally { visibilityEnd(); visibility.dispose(); } ${marker}\n    }\n    stream(model, context, options) {`],
-  [runner, '    async emitBeforeAgentStart(prompt, images, systemPromptOptions) {', `    async emitBeforeAgentStart(prompt, images, systemPromptOptions) {\n        const visibility = visibilityBegin(); ${marker}\n        const visibilityEnd = visibility.span("hook");\n        try {`],
+  [runner, '    async emitBeforeAgentStart(trigger, systemPromptOptions) {', `    async emitBeforeAgentStart(trigger, systemPromptOptions) {\n        const visibility = visibilityBegin(); ${marker}\n        const visibilityEnd = visibility.span("hook");\n        try {`],
   [runner, '        return { messages, systemPromptOptions: currentOptions };\n    }', `        return { messages, systemPromptOptions: currentOptions };\n        } finally { visibilityEnd(); visibility.dispose(); } ${marker}\n    }`],
 ];
 // Runner imports vary with sibling patches: prepend a separately owned exact block.
