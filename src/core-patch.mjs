@@ -47,13 +47,13 @@ const bundleSpecs = [
   [bundleCodex, 'let delayMs=BASE_DELAY_MS*2**attempt;await sleep(delayMs,options?.signal);', `let delayMs=BASE_DELAY_MS*2**attempt,visibilityBackoffStart=performance.now();visibilityCodex?.emit({stage:"backoff",delayMs});await sleep(delayMs,options?.signal);visibilityCodex?.emit({stage:"backoff",delayMs,durationMs:performance.now()-visibilityBackoffStart});${m}`],
   [bundleCodex, 'if(websocketDisabledForSession&&recordWebSocketSseFallback(cacheSessionId),', `if(websocketDisabledForSession&&(visibilityCodex?.emit({stage:"fallback",transport:"sse"}),recordWebSocketSseFallback(cacheSessionId)),${m}`],
   [bundleHttp, 'timestamp:Date.now()},streamedReasoningDetails,applyStreamedReasoningDetails=', `timestamp:Date.now()},visibilityHTTP=${telemetry}?.http?.(options,model),${m}streamedReasoningDetails,applyStreamedReasoningDetails=`],
-  [bundleHttp, 'options?.headers,options?.fetch,cacheSessionId,compat)', `options?.headers,visibilityHTTP?.fetch??options?.fetch,cacheSessionId,compat)${m}`],
+  [bundleHttp, 'options?.fetch,cacheSessionId,compat)', `visibilityHTTP?.fetch??options?.fetch,cacheSessionId,compat)${m}`],
   [bundleHttp, 'for await(let chunk of openaiStream){', `for await(let chunk of openaiStream){visibilityHTTP?.event(chunk);${m}`],
   [bundleHttp, 'stream2.end()}})(),stream2}', `stream2.end()}finally{visibilityHTTP?.dispose()}${m}})(),stream2}`],
   [bundleMain, 'modelRuntime.streamSimple(model2,context,requestOptions)}', `modelRuntime.streamSimple(model2,context,visibilityForeground({...requestOptions}))${m}}`],
   [bundleMain, 'async prepareRequest(model,options){let provider=', `async prepareRequest(model,options){let visibility=visibilityBegin(options),visibilityEnd=visibility.span("prepare");${m}try{let provider=`],
   [bundleMain, 'let resolution=await this.getAuth(model,{apiKey:options?.apiKey,env:options?.env,signal:options?.signal});', `let visibilityAuthEnd=visibility.span("auth"),resolution;${m}try{resolution=await this.getAuth(model,{apiKey:options?.apiKey,env:options?.env,signal:options?.signal})}finally{visibilityAuthEnd()}visibility.credentials(resolution),visibility.credentials(options?.apiKey),visibility.credentials(options?.headers),visibility.credentials(options?.env);`],
-  [bundleMain, ',requestModel=resolution.auth.baseUrl?{...model,baseUrl:resolution.auth.baseUrl}:model;return{provider,model:requestModel,options:{...providerOptions,apiKey:providerOptions.apiKey??resolution.auth.apiKey,headers,env}}}stream(model,context,options){', `,requestModel=(visibility.credentials(headers),visibility.credentials(env),resolution.auth.baseUrl?{...model,baseUrl:resolution.auth.baseUrl}:model),visibilityPrepared={provider,model:requestModel,options:{...providerOptions,apiKey:providerOptions.apiKey??resolution.auth.apiKey,headers,env}};return visibility.handoff(visibilityPrepared.options,requestModel),visibilityPrepared}finally{visibilityEnd(),visibility.dispose()}${m}}stream(model,context,options){`],
+  [bundleMain, ';return{provider,model:requestModel,options:{...providerOptions,apiKey:providerOptions.apiKey??resolution.auth.apiKey,headers,env}}}stream(model,context,options){', `;let visibilityPrepared={provider,model:requestModel,options:{...providerOptions,apiKey:providerOptions.apiKey??resolution.auth.apiKey,headers,env}};return visibility.credentials(headers),visibility.credentials(env),visibility.handoff(visibilityPrepared.options,requestModel),visibilityPrepared}finally{visibilityEnd(),visibility.dispose()}${m}}stream(model,context,options){`],
   [bundleMain, 'async emitBeforeAgentStart(trigger,systemPromptOptions){', `async emitBeforeAgentStart(trigger,systemPromptOptions){let visibility=visibilityBegin(),visibilityEnd=visibility.span("hook");${m}try{`],
   [bundleMain, 'return{messages,systemPromptOptions:currentOptions}}async emitResourcesDiscover(', `return{messages,systemPromptOptions:currentOptions}}finally{visibilityEnd(),visibility.dispose()}${m}}async emitResourcesDiscover(`],
 ];
@@ -84,14 +84,13 @@ const specs = [
   [codex, "const delayMs = BASE_DELAY_MS * 2 ** attempt;\n                        await sleep(delayMs, options?.signal);", "const delayMs = BASE_DELAY_MS * 2 ** attempt;\n                        const visibilityBackoffStart = performance.now();\n                        visibilityCodex?.emit({ stage: \"backoff\", delayMs });\n                        await sleep(delayMs, options?.signal);\n                        visibilityCodex?.emit({ stage: \"backoff\", delayMs, durationMs: performance.now() - visibilityBackoffStart }); /* pi-response-visibility:v1 */"],
   [codex, "if (websocketDisabledForSession) {\n                recordWebSocketSseFallback(cacheSessionId);", "if (websocketDisabledForSession) {\n                visibilityCodex?.emit({ stage: \"fallback\", transport: \"sse\" });\n                recordWebSocketSseFallback(cacheSessionId); /* pi-response-visibility:v1 */"],
   [http, '        let streamedReasoningDetails;', `        const visibilityHTTP = globalThis[Symbol.for("${CONTRACT}")]?.http?.(options, model); ${marker}\n        let streamedReasoningDetails;`],
-  [http, 'options?.headers, options?.fetch, cacheSessionId, compat);', `options?.headers, visibilityHTTP?.fetch ?? options?.fetch, cacheSessionId, compat); ${marker}`],
+  [http, 'options?.fetch, cacheSessionId, compat);', `visibilityHTTP?.fetch ?? options?.fetch, cacheSessionId, compat); ${marker}`],
   [http, '            for await (const chunk of openaiStream) {', `            for await (const chunk of openaiStream) {\n                visibilityHTTP?.event(chunk); ${marker}`],
   [http, '            stream.end();\n        }\n    })();', `            stream.end();\n        } finally { visibilityHTTP?.dispose(); } ${marker}\n    })();`],
   [sdk, '            return modelRuntime.streamSimple(model, context, requestOptions);', `            return modelRuntime.streamSimple(model, context, visibilityForeground({ ...requestOptions })); ${marker}`],
   [runtime, 'import { dirname, join } from "node:path";', `import { begin as visibilityBegin } from "./response-visibility-bridge.mjs"; ${marker}\nimport { dirname, join } from "node:path";`],
   [runtime, '    async prepareRequest(model, options) {', `    async prepareRequest(model, options) {\n        const visibility = visibilityBegin(options); ${marker}\n        const visibilityEnd = visibility.span("prepare");\n        try {`],
   [runtime, '        const resolution = await this.getAuth(model, {\n            apiKey: options?.apiKey,\n            env: options?.env,\n            signal: options?.signal,\n        });', `        const visibilityAuthEnd = visibility.span("auth"); ${marker}\n        let resolution;\n        try {\n            resolution = await this.getAuth(model, {\n                apiKey: options?.apiKey,\n                env: options?.env,\n                signal: options?.signal,\n            });\n        } finally { visibilityAuthEnd(); }\n        visibility.credentials(resolution);\n        visibility.credentials(options?.apiKey);\n        visibility.credentials(options?.headers);\n        visibility.credentials(options?.env);`],
-  [runtime, '        const requestModel = resolution.auth.baseUrl ? { ...model, baseUrl: resolution.auth.baseUrl } : model;', `        visibility.credentials(headers); ${marker}\n        visibility.credentials(env);\n        const requestModel = resolution.auth.baseUrl ? { ...model, baseUrl: resolution.auth.baseUrl } : model;`],
   [runtime, `        return {
             provider,
             model: requestModel,
@@ -111,6 +110,8 @@ const specs = [
                 env,
             },
         };
+        visibility.credentials(headers);
+        visibility.credentials(env);
         visibility.handoff(visibilityPrepared.options, requestModel);
         return visibilityPrepared; ${marker}`],
   [runtime, '    }\n    stream(model, context, options) {', `        } finally { visibilityEnd(); visibility.dispose(); } ${marker}\n    }\n    stream(model, context, options) {`],

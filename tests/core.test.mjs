@@ -119,7 +119,7 @@ test('paired scripted completion preserves request options, abort and errors', a
     const start = source.indexOf('    async prepareRequest(model, options) {');
     const end = source.indexOf('    complete(model, context, options) {', start);
     const method = source.slice(start, end);
-    const module = `import { begin as visibilityBegin } from ${JSON.stringify(pathToFileURL(join(root, 'dist/core/response-visibility-bridge.mjs')).href)};\nconst mergeHeaders=(a,b)=>({...a,...b}); const normalizeContext=x=>x; const assertChatModel=()=>{}; const lazyStream=(m,f)=>({result:async()=>{const s=await f();return s.result();}}); const ModelsError=Error; export class Runtime { ${method} }`;
+    const module = `import { begin as visibilityBegin } from ${JSON.stringify(pathToFileURL(join(root, 'dist/core/response-visibility-bridge.mjs')).href)};\nconst mergeHeaders=(a,b)=>({...a,...b}); const normalizeContext=x=>x; const assertChatModel=()=>{}; const lazyStream=(m,f)=>({result:async()=>{const s=await f();return s.result();}}); const ModelsError=Error; const getOpenCodeSessionHeaders=()=>undefined; export class Runtime { ${method} }`;
     const { Runtime } = await import('data:text/javascript;base64,' + Buffer.from(module).toString('base64'));
     const runtime = new Runtime();
     const controller = new AbortController();
