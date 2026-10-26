@@ -44,6 +44,10 @@ The persistent widget sits behind a border-coloured `▎` bar (separating it fro
 
 Live changes do not persist until saved. History is session-local, not reloaded from traces. Failed/aborted requests and slow successes get brief summaries; fast successes do not. Quiet warnings name the observed phase without intervention. Preparation uses activity age; waiting/streaming uses content age. Lifecycle activity does not impersonate reasoning/text/tool progress.
 
+## Read-only observer handle
+
+Other extensions in the same Pi process can read the foreground request snapshot through `globalThis[Symbol.for('pi.response-visibility.observer.v1')]`: `{ version: 1, snapshot() }`. `snapshot()` returns the same immutable object the widget renders, or `null` when no request is active. Its `quiet` field is `{ phase, absent, ageMs }` once the request has been silent for `quietMs`; `absent: 'content progress'` means no reasoning, text or tool delta since the wait began. The handle exists from `session_start` until shutdown. It is observation only: this package still takes no recovery action, and a consumer that acts on the signal owns that behavior.
+
 ## Observations and gaps
 
 Stock hooks measure local turn/preparation boundaries, parsed provider activity and content deltas. Activity and content ages are distinct. These are client observations, not original wire bytes or server inference measurements. Final numeric token usage and reported cost are retained when Pi supplies them; missing usage stays unavailable, never estimated. Stock `after_provider_response` supplies numeric HTTP response status, retained in the inspector, history and default metadata trace without the helper. This is a response-hook observation, not wire telemetry; stock headers and response/error containers are not copied. Transport dispatch/bytes, provider request identifiers, retries and server queue/concurrency are unavailable when not exposed; the UI says so rather than estimating them. The four section families remain selectable even when detail is unavailable.
