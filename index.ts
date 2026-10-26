@@ -11,6 +11,9 @@ import { lines, component, seconds } from './src/ui.mjs';
 // sanitized {kind,data,origin}; only explicitly foreground observations join the UI wait.
 // Unknown/background observations never overwrite foreground state. Rich snapshots require a live core capability.
 export const BRIDGE = Symbol.for('pi.response-visibility.telemetry.v1');
+// Read-only observer handle v1: {version: 1, snapshot()} returns the current foreground
+// request snapshot (immutable, see src/observer.mjs) or null. Consumers must not mutate it.
+export const OBSERVER = Symbol.for('pi.response-visibility.observer.v1');
 export default function (pi: ExtensionAPI) {
   const root = join(homedir(), '.local', 'state', 'pi-response-visibility');
   const settings = join(root, 'settings.json');
@@ -18,6 +21,7 @@ export default function (pi: ExtensionAPI) {
   let ui: any, timer: any, requestRender: any, closeOverlay: any, unsubscribe: any, writer: any;
   const notify = (text: string) => ui?.notify(text, 'warning');
   state.observer = createObserver();
+  const handle = Object.freeze({ version: 1, snapshot: () => state.observer.snapshot() });
   function record(kind: string, data = {}) {
     try { const r = state.observer.event(kind, data); if (r) writer?.enqueue({ ...r, kind }); return r; } catch { return null; }
   }
@@ -46,6 +50,7 @@ export default function (pi: ExtensionAPI) {
     try { unsubscribe?.(); } catch {} unsubscribe = undefined;
     closeOverlay?.(); closeOverlay = undefined;
     ui?.setWidget('latency', undefined); requestRender = undefined;
+    if ((globalThis as any)[OBSERVER] === handle) delete (globalThis as any)[OBSERVER];
     state.observer.dispose(); state.spans = []; ui = undefined;
     const old = writer; writer = undefined; await old?.close();
   }
@@ -53,6 +58,7 @@ export default function (pi: ExtensionAPI) {
     await stop();
     try { state.config = await loadConfig(settings); } catch { state.config = validateConfig(); ctx.ui.notify('Latency settings unavailable; using defaults.', 'warning'); }
     state.observer = createObserver({ config: state.config, notify });
+    (globalThis as any)[OBSERVER] = handle;
     if (ctx.mode === 'tui') ui = ctx.ui;
     recorder();
     const bridge = (globalThis as any)[BRIDGE];
