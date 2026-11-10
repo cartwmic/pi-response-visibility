@@ -17,6 +17,8 @@ const codex = 'pi-ai:dist/api/openai-codex-responses.js';
 const bundleCodex = 'bundle:async function*parseWebSocket(socket,signal,idleTimeoutMs';
 const bundleHttp = 'bundle:for await(let chunk of openaiStream)';
 const bundleMain = 'bundle:async prepareRequest(model,options){';
+// Pi 1.5.2 splits the model runtime and the runner/sdk into separate chunks; 1.5.0 has them in one.
+const bundleRunner = 'bundle:async emitBeforeAgentStart(trigger,systemPromptOptions){';
 const m = marker;
 const telemetry = `globalThis[Symbol.for("${CONTRACT}")]`;
 // Minified equivalents of the SDK specs, for Pi builds that ship a bundle.
@@ -50,12 +52,12 @@ const bundleSpecs = [
   [bundleHttp, 'options?.fetch,cacheSessionId,compat)', `visibilityHTTP?.fetch??options?.fetch,cacheSessionId,compat)${m}`],
   [bundleHttp, 'for await(let chunk of openaiStream){', `for await(let chunk of openaiStream){visibilityHTTP?.event(chunk);${m}`],
   [bundleHttp, 'stream2.end()}})(),stream2}', `stream2.end()}finally{visibilityHTTP?.dispose()}${m}})(),stream2}`],
-  [bundleMain, 'modelRuntime.streamSimple(model2,context,requestOptions)}', `modelRuntime.streamSimple(model2,context,visibilityForeground({...requestOptions}))${m}}`],
+  [bundleRunner, 'modelRuntime.streamSimple(model2,context,requestOptions)}', `modelRuntime.streamSimple(model2,context,visibilityForeground({...requestOptions}))${m}}`],
   [bundleMain, 'async prepareRequest(model,options){let provider=', `async prepareRequest(model,options){let visibility=visibilityBegin(options),visibilityEnd=visibility.span("prepare");${m}try{let provider=`],
   [bundleMain, 'let resolution=await this.getAuth(model,{apiKey:options?.apiKey,env:options?.env,signal:options?.signal});', `let visibilityAuthEnd=visibility.span("auth"),resolution;${m}try{resolution=await this.getAuth(model,{apiKey:options?.apiKey,env:options?.env,signal:options?.signal})}finally{visibilityAuthEnd()}visibility.credentials(resolution),visibility.credentials(options?.apiKey),visibility.credentials(options?.headers),visibility.credentials(options?.env);`],
   [bundleMain, ';return{provider,model:requestModel,options:{...providerOptions,apiKey:providerOptions.apiKey??resolution.auth.apiKey,headers,env}}}stream(model,context,options){', `;let visibilityPrepared={provider,model:requestModel,options:{...providerOptions,apiKey:providerOptions.apiKey??resolution.auth.apiKey,headers,env}};return visibility.credentials(headers),visibility.credentials(env),visibility.handoff(visibilityPrepared.options,requestModel),visibilityPrepared}finally{visibilityEnd(),visibility.dispose()}${m}}stream(model,context,options){`],
-  [bundleMain, 'async emitBeforeAgentStart(trigger,systemPromptOptions){', `async emitBeforeAgentStart(trigger,systemPromptOptions){let visibility=visibilityBegin(),visibilityEnd=visibility.span("hook");${m}try{`],
-  [bundleMain, 'return{messages,systemPromptOptions:currentOptions}}async emitResourcesDiscover(', `return{messages,systemPromptOptions:currentOptions}}finally{visibilityEnd(),visibility.dispose()}${m}}async emitResourcesDiscover(`],
+  [bundleRunner, 'async emitBeforeAgentStart(trigger,systemPromptOptions){', `async emitBeforeAgentStart(trigger,systemPromptOptions){let visibility=visibilityBegin(),visibilityEnd=visibility.span("hook");${m}try{`],
+  [bundleRunner, 'return{messages,systemPromptOptions:currentOptions}}async emitResourcesDiscover(', `return{messages,systemPromptOptions:currentOptions}}finally{visibilityEnd(),visibility.dispose()}${m}}async emitResourcesDiscover(`],
 ];
 const specs = [
   [codex, "    const reader = response.body.getReader();", "    const reader = response.body.getReader();\n    visibilityCodex?.emit({ stage: \"registration\", transport: \"sse\" }); /* pi-response-visibility:v1 */"],
@@ -136,7 +138,7 @@ async function resolveTargets(root) {
   if (!existsSync(chunks)) return { files, bundle: false };
   const names = (await readdir(chunks)).filter(name => name.endsWith('.js'));
   const texts = await Promise.all(names.map(name => readFile(join(chunks, name), 'utf8')));
-  for (const key of [bundleCodex, bundleHttp, bundleMain]) {
+  for (const key of [bundleCodex, bundleHttp, bundleMain, bundleRunner]) {
     const hits = names.filter((_, i) => texts[i].includes(key.slice('bundle:'.length)));
     if (hits.length !== 1) throw new Error(`Expected one bundle chunk for ${key}, found ${hits.length}`);
     files.set(key, join(chunks, hits[0]));
@@ -159,13 +161,15 @@ export async function corePatch(action, suppliedRoot) {
   if (pkg.name !== '@earendil-works/pi-coding-agent') throw new Error('Unsupported Pi install (expected @earendil-works/pi-coding-agent)');
   const { files, bundle } = await resolveTargets(root);
   const allSpecs = bundle ? [...specs, ...bundleSpecs] : specs;
+  // Keyed by file: two logical targets may share one bundle chunk (Pi 1.5.0).
   const sources = new Map();
-  for (const [key, file] of files) {
+  for (const file of new Set(files.values())) {
     if (!(await lstat(file)).isFile()) throw new Error('Patch targets must be regular files');
-    sources.set(key, await readFile(file, 'utf8'));
+    sources.set(file, await readFile(file, 'utf8'));
   }
+  const text = key => sources.get(files.get(key));
   const states = allSpecs.map(([path, before, after]) => {
-    const text = sources.get(path);
+    const text = sources.get(files.get(path));
     const patched = count(text, after);
     if (patched === 1) return 'applied';
     if (patched !== 0 || count(text, before) !== 1) throw new Error(`Unsupported or ambiguous anchor in ${path}: ${before.slice(0, 80)}`);
@@ -173,10 +177,11 @@ export async function corePatch(action, suppliedRoot) {
   });
   if (new Set(states).size !== 1) throw new Error('Partial patch rejected');
   const state = states[0];
-  const runnerText = sources.get(runner);
+  const runnerText = text(runner);
   if (count(runnerText, runnerImport) !== (state === 'applied' ? 1 : 0)) throw new Error('Runner import mismatch');
-  if (count(sources.get(sdk), sdkImport) !== (state === 'applied' ? 1 : 0)) throw new Error('SDK import mismatch');
-  if (bundle && count(sources.get(bundleMain), bundleImport) !== (state === 'applied' ? 1 : 0)) throw new Error('Bundle import mismatch');
+  if (count(text(sdk), sdkImport) !== (state === 'applied' ? 1 : 0)) throw new Error('SDK import mismatch');
+  const bundleChunks = bundle ? new Set([files.get(bundleMain), files.get(bundleRunner)]) : new Set();
+  for (const chunk of bundleChunks) if (count(sources.get(chunk), bundleImport) !== (state === 'applied' ? 1 : 0)) throw new Error('Bundle import mismatch');
   const bridgeSource = await readFile(new URL('./core-bridge.mjs', import.meta.url), 'utf8');
   let installed;
   try { installed = await readFile(join(root, bridgePath), 'utf8'); } catch (e) { if (e.code !== 'ENOENT') throw e; }
@@ -186,12 +191,13 @@ export async function corePatch(action, suppliedRoot) {
   if (action === 'check' || (action === 'apply' && state === 'applied') || (action === 'rollback' && state === 'stock')) return { root, state, version: 1 };
   const applying = action === 'apply';
   // Function replacers: anchors contain `$` sequences that String.replace would otherwise expand.
-  for (const [path, before, after] of allSpecs) sources.set(path, sources.get(path).replace(applying ? before : after, () => (applying ? after : before)));
-  sources.set(runner, applying ? runnerImport + sources.get(runner) : sources.get(runner).replace(runnerImport, ''));
-  sources.set(sdk, applying ? sdkImport + sources.get(sdk) : sources.get(sdk).replace(sdkImport, ''));
-  if (bundle) sources.set(bundleMain, applying ? bundleImport + sources.get(bundleMain) : sources.get(bundleMain).replace(bundleImport, ''));
+  const edit = (key, fn) => sources.set(files.get(key), fn(text(key)));
+  for (const [path, before, after] of allSpecs) edit(path, t => t.replace(applying ? before : after, () => (applying ? after : before)));
+  edit(runner, t => applying ? runnerImport + t : t.replace(runnerImport, ''));
+  edit(sdk, t => applying ? sdkImport + t : t.replace(sdkImport, ''));
+  for (const chunk of bundleChunks) sources.set(chunk, applying ? bundleImport + sources.get(chunk) : sources.get(chunk).replace(bundleImport, ''));
   if (applying) await writeFile(join(root, bridgePath), bridgeSource, { flag: 'wx', mode: 0o600 });
-  for (const [key, text] of sources) await writeFile(files.get(key), text);
+  for (const [file, source] of sources) await writeFile(file, source);
   if (!applying) await unlink(join(root, bridgePath));
   return { root, state: applying ? 'applied' : 'stock', version: 1 };
 }
